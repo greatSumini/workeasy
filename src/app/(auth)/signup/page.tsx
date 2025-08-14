@@ -71,6 +71,15 @@ function SignupContent() {
     }
 
     if (!data.session) {
+      try {
+        // 이메일 인증 후 첫 로그인 시 사용할 매장 정보 저장
+        const pending = {
+          store_name: values.storeName,
+          store_address: values.address || null,
+          store_phone: values.phone || null,
+        };
+        localStorage.setItem("postSignupStoreInfo", JSON.stringify(pending));
+      } catch {}
       toast({
         title: "이메일 확인 필요",
         description: "이메일로 전송된 링크를 확인해 주세요.",

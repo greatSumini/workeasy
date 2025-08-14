@@ -47,6 +47,27 @@ function LoginContent() {
       toast({ title: "로그인 실패", description: error.message });
       return;
     }
+    // 이메일 인증 후 최초 로그인 시, 보류된 매장 생성 실행
+    try {
+      const raw = localStorage.getItem("postSignupStoreInfo");
+      if (raw) {
+        const pending = JSON.parse(raw) as {
+          store_name: string;
+          store_address: string | null;
+          store_phone: string | null;
+        };
+        if (pending.store_name && pending.store_name.trim().length >= 2) {
+          const { error: rpcError } = await supabase.rpc(
+            "create_store_as_owner",
+            pending
+          );
+          if (!rpcError) {
+            localStorage.removeItem("postSignupStoreInfo");
+          }
+        }
+      }
+    } catch {}
+
     toast({ title: "로그인 성공", description: "대시보드로 이동합니다." });
     const redirect = params.get("redirect") || "/dashboard";
     router.replace(redirect);
