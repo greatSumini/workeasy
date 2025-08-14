@@ -95,6 +95,8 @@ export default function CalendarView({
         onChangeDate={setDate}
         mode={mode}
         onChangeMode={setMode}
+        storeId={storeId}
+        staffOptions={staffOptions}
       />
       <CalendarFilters
         staffOptions={staffOptions}
@@ -103,13 +105,28 @@ export default function CalendarView({
       />
       <div>
         {mode === "day" && (
-          <DayView date={date} shifts={filtered} userNameMap={userNameMap} />
+          <DayView
+            date={date}
+            shifts={filtered}
+            userNameMap={userNameMap}
+            staffOptions={staffOptions}
+          />
         )}
         {mode === "week" && (
-          <WeekView date={date} shifts={filtered} userNameMap={userNameMap} />
+          <WeekView
+            date={date}
+            shifts={filtered}
+            userNameMap={userNameMap}
+            staffOptions={staffOptions}
+          />
         )}
         {mode === "month" && (
-          <MonthView date={date} shifts={filtered} userNameMap={userNameMap} />
+          <MonthView
+            date={date}
+            shifts={filtered}
+            userNameMap={userNameMap}
+            staffOptions={staffOptions}
+          />
         )}
       </div>
     </section>

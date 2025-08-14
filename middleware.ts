@@ -1,7 +1,11 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-const PROTECTED = [/^\/dashboard(\/.*)?$/, /^\/admin(\/.*)?$/];
+const PROTECTED = [
+  /^\/dashboard(\/.*)?$/,
+  /^\/admin(\/.*)?$/,
+  /^\/settings(\/.*)?$/,
+];
 const AUTH_PAGES = [/^\/login$/, /^\/signup$/];
 
 export function middleware(req: NextRequest) {

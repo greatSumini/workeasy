@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     }
 
     const res = await fetch(
-      `${TOSS_API_BASE}/v1/billing/authorizations/confirm`,
+      `${TOSS_API_BASE}/v1/billing/authorizations/issue`,
       {
         method: "POST",
         headers: {

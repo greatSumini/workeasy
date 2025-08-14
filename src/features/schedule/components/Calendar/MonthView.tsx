@@ -10,16 +10,22 @@ import {
   startOfMonth,
   startOfWeek,
 } from "date-fns";
-import { Shift } from "@/features/schedule/types";
+import { Shift, StaffOption } from "@/features/schedule/types";
 import ShiftCard from "./ShiftCard";
 
 type Props = {
   date: Date;
   shifts: Shift[];
   userNameMap?: Record<string, string>;
+  staffOptions?: StaffOption[];
 };
 
-export default function MonthView({ date, shifts, userNameMap }: Props) {
+export default function MonthView({
+  date,
+  shifts,
+  userNameMap,
+  staffOptions,
+}: Props) {
   const monthStart = startOfMonth(date);
   const monthEnd = endOfMonth(date);
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
@@ -40,7 +46,12 @@ export default function MonthView({ date, shifts, userNameMap }: Props) {
             {shifts
               .filter((s) => isSameDay(new Date(s.start_time), d))
               .map((s) => (
-                <ShiftCard key={s.id} shift={s} userNameMap={userNameMap} />
+                <ShiftCard
+                  key={s.id}
+                  shift={s}
+                  userNameMap={userNameMap}
+                  staffOptions={staffOptions}
+                />
               ))}
           </div>
         </div>

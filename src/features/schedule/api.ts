@@ -1,9 +1,16 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
-import type { Shift, ShiftFilters, GetShiftsResponse } from "./types";
+import type {
+  Shift,
+  ShiftFilters,
+  GetShiftsResponse,
+  UpsertShiftInput,
+  DeleteShiftInput,
+  StaffOption,
+} from "./types";
 
 // Supabase 클라이언트 인스턴스
 const supabase = createClient();
@@ -155,6 +162,29 @@ export async function getProfilesByIds(ids: string[]): Promise<UserProfile[]> {
   return (data ?? []) as UserProfile[];
 }
 
+// 매장의 직원 목록 조회
+export async function getStoreStaff(storeId: string): Promise<StaffOption[]> {
+  const { data, error } = await supabase
+    .from("store_users")
+    .select(
+      `
+      user_id,
+      users:auth.users!store_users_user_id_fkey(id, email, raw_user_meta_data)
+    `
+    )
+    .eq("store_id", storeId);
+
+  if (error) {
+    throw new Error(`직원 목록 조회에 실패했습니다: ${error.message}`);
+  }
+
+  return (data || []).map((item: any) => ({
+    id: item.user_id,
+    name:
+      item.users?.raw_user_meta_data?.name || item.users?.email || "이름 없음",
+  }));
+}
+
 export function useProfilesByIds(ids: string[]) {
   return useQuery({
     queryKey: ["profiles-by-ids", ids.sort().join(",")],
@@ -171,6 +201,16 @@ export function useProfilesByIds(ids: string[]) {
       }
       return failureCount < 2;
     },
+  });
+}
+
+export function useStoreStaff(storeId: string) {
+  return useQuery({
+    queryKey: ["store-staff", storeId],
+    queryFn: () => getStoreStaff(storeId),
+    enabled: !!storeId,
+    staleTime: 1000 * 60 * 5, // 5분
+    gcTime: 1000 * 60 * 10, // 10분
   });
 }
 
@@ -202,10 +242,17 @@ export function useMyShifts(
 ) {
   return useQuery({
     queryKey: SCHEDULE_QUERY_KEYS.myShifts(userId, dateRange),
-    queryFn: () => getMyShifts(userId, dateRange),
-    staleTime: 1000 * 60 * 5, // 5분
-    gcTime: 1000 * 60 * 10, // 10분
-    enabled: !!userId,
+    queryFn: async () => {
+      // 현재 사용자 ID 자동 가져오기
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("사용자 인증이 필요합니다.");
+      return getMyShifts(user.id, dateRange);
+    },
+    staleTime: 1000 * 60 * 10, // 10분으로 증가
+    gcTime: 1000 * 60 * 15, // 15분으로 증가
+    enabled: !!userId && userId !== "", // 빈 문자열 체크 추가
     retry: (failureCount, error) => {
       if (
         error.message.includes("auth") ||
@@ -322,4 +369,270 @@ export function logApiPerformance(operation: string, startTime: number) {
       `✅ Schedule API: ${operation} 작업이 ${duration.toFixed(2)}ms 내에 완료되었습니다.`
     );
   }
+}
+
+// ----- Mutations -----
+export async function checkShiftOverlap(
+  storeId: string,
+  userId: string | null,
+  startIso: string,
+  endIso: string,
+  excludeId?: string
+): Promise<boolean> {
+  // 같은 매장 내 같은 유저의 시간이 겹치는지 간단 체크 (userId 없으면 매장 기준으로만 확인)
+  let q = supabase
+    .from("shifts")
+    .select("id, user_id, start_time, end_time")
+    .eq("store_id", storeId)
+    .lte("start_time", endIso)
+    .gte("end_time", startIso);
+
+  if (userId) q = q.eq("user_id", userId);
+  if (excludeId) q = q.neq("id", excludeId);
+
+  const { data, error } = await q;
+  if (error) throw new Error(`중복 검사 실패: ${error.message}`);
+  return (data ?? []).length > 0;
+}
+
+export async function upsertShift(input: UpsertShiftInput): Promise<Shift> {
+  const overlap = await checkShiftOverlap(
+    input.store_id,
+    input.user_id,
+    input.start_time,
+    input.end_time,
+    input.id
+  );
+  if (overlap) {
+    throw new Error("동일 시간대에 겹치는 근무가 있습니다.");
+  }
+
+  if (input.id) {
+    const { data, error } = await supabase
+      .from("shifts")
+      .update({
+        user_id: input.user_id,
+        start_time: input.start_time,
+        end_time: input.end_time,
+        position: input.position ?? null,
+        status: input.status ?? "pending",
+        notes: input.notes ?? null,
+      })
+      .eq("id", input.id)
+      .select("*")
+      .single();
+    if (error) throw new Error(`근무 수정 실패: ${error.message}`);
+    return data as Shift;
+  }
+
+  const { data, error } = await supabase
+    .from("shifts")
+    .insert({
+      store_id: input.store_id,
+      user_id: input.user_id,
+      start_time: input.start_time,
+      end_time: input.end_time,
+      position: input.position ?? null,
+      status: input.status ?? "pending",
+      notes: input.notes ?? null,
+    })
+    .select("*")
+    .single();
+  if (error) throw new Error(`근무 생성 실패: ${error.message}`);
+  return data as Shift;
+}
+
+export async function deleteShift(input: DeleteShiftInput): Promise<void> {
+  const { error } = await supabase
+    .from("shifts")
+    .delete()
+    .eq("id", input.id)
+    .eq("store_id", input.store_id);
+  if (error) throw new Error(`근무 삭제 실패: ${error.message}`);
+}
+
+// ----- Convenience CRUD wrappers -----
+export type CreateShiftInput = Omit<UpsertShiftInput, "id">;
+export type UpdateShiftInput = UpsertShiftInput & { id: string };
+
+export async function createShift(input: CreateShiftInput): Promise<Shift> {
+  return upsertShift({ ...input });
+}
+
+export async function updateShift(input: UpdateShiftInput): Promise<Shift> {
+  return upsertShift(input);
+}
+
+// ----- React Query Mutations with Optimistic Updates -----
+function applyOptimisticAdd(
+  old: unknown,
+  optimistic: Shift,
+  storeId: string
+): unknown {
+  if (!old || typeof old !== "object") return old;
+  const anyOld = old as any;
+  if (Array.isArray(anyOld)) return anyOld; // not our shape
+  if (Array.isArray(anyOld.data)) {
+    // 필터 일치 여부 확인 어려움 → 최소 변경: 동일 store 의 리스트에만 추가 시도
+    if (optimistic.store_id === storeId) {
+      return { ...anyOld, data: [optimistic, ...anyOld.data] };
+    }
+  }
+  return old;
+}
+
+function applyOptimisticUpdate(old: unknown, updated: Shift): unknown {
+  if (!old || typeof old !== "object") return old;
+  const anyOld = old as any;
+  if (Array.isArray(anyOld)) return anyOld;
+  if (Array.isArray(anyOld.data)) {
+    const idx = anyOld.data.findIndex?.((s: Shift) => s.id === updated.id);
+    if (idx >= 0) {
+      const next = anyOld.data.slice();
+      next[idx] = { ...anyOld.data[idx], ...updated };
+      return { ...anyOld, data: next };
+    }
+  }
+  return old;
+}
+
+function applyOptimisticRemove(old: unknown, id: string): unknown {
+  if (!old || typeof old !== "object") return old;
+  const anyOld = old as any;
+  if (Array.isArray(anyOld)) return anyOld;
+  if (Array.isArray(anyOld.data)) {
+    const next = anyOld.data.filter?.((s: Shift) => s.id !== id);
+    return { ...anyOld, data: next };
+  }
+  return old;
+}
+
+export function useCreateShift(storeId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreateShiftInput) => createShift(input),
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({
+        queryKey: SCHEDULE_QUERY_KEYS.shifts(),
+      });
+      const previous = queryClient.getQueriesData({
+        queryKey: SCHEDULE_QUERY_KEYS.shifts(),
+      });
+      const optimistic: Shift = {
+        id: `temp-${Date.now()}`,
+        store_id: input.store_id,
+        user_id: input.user_id,
+        start_time: input.start_time,
+        end_time: input.end_time,
+        position: input.position ?? null,
+        status: input.status ?? "pending",
+        notes: input.notes ?? null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as Shift;
+      for (const [key, data] of previous) {
+        queryClient.setQueryData(key, (old) =>
+          applyOptimisticAdd(old, optimistic, storeId)
+        );
+      }
+      return { previous, tempId: optimistic.id };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (!ctx) return;
+      for (const [key, data] of ctx.previous) {
+        queryClient.setQueryData(key, data);
+      }
+    },
+    onSuccess: (created, _vars, ctx) => {
+      // temp 항목 교체
+      const queries = queryClient.getQueriesData({
+        queryKey: SCHEDULE_QUERY_KEYS.shifts(),
+      });
+      for (const [key, data] of queries) {
+        queryClient.setQueryData(key, (old) =>
+          applyOptimisticUpdate(old, created)
+        );
+      }
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: SCHEDULE_QUERY_KEYS.shifts(),
+      });
+    },
+  });
+}
+
+export function useUpdateShift(storeId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: UpdateShiftInput) => updateShift(input),
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({
+        queryKey: SCHEDULE_QUERY_KEYS.shifts(),
+      });
+      const previous = queryClient.getQueriesData({
+        queryKey: SCHEDULE_QUERY_KEYS.shifts(),
+      });
+      // 낙관적 적용
+      for (const [key, data] of previous) {
+        queryClient.setQueryData(key, (old) =>
+          applyOptimisticUpdate(old, input as unknown as Shift)
+        );
+      }
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (!ctx) return;
+      for (const [key, data] of ctx.previous) {
+        queryClient.setQueryData(key, data);
+      }
+    },
+    onSuccess: (updated) => {
+      const queries = queryClient.getQueriesData({
+        queryKey: SCHEDULE_QUERY_KEYS.shifts(),
+      });
+      for (const [key, data] of queries) {
+        queryClient.setQueryData(key, (old) =>
+          applyOptimisticUpdate(old, updated)
+        );
+      }
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: SCHEDULE_QUERY_KEYS.shifts(),
+      });
+    },
+  });
+}
+
+export function useDeleteShift(storeId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: DeleteShiftInput) => deleteShift(input),
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({
+        queryKey: SCHEDULE_QUERY_KEYS.shifts(),
+      });
+      const previous = queryClient.getQueriesData({
+        queryKey: SCHEDULE_QUERY_KEYS.shifts(),
+      });
+      for (const [key, data] of previous) {
+        queryClient.setQueryData(key, (old) =>
+          applyOptimisticRemove(old, input.id)
+        );
+      }
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (!ctx) return;
+      for (const [key, data] of ctx.previous) {
+        queryClient.setQueryData(key, data);
+      }
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: SCHEDULE_QUERY_KEYS.shifts(),
+      });
+    },
+  });
 }

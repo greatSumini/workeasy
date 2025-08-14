@@ -8,16 +8,22 @@ import {
   isSameDay,
   startOfWeek,
 } from "date-fns";
-import { Shift } from "@/features/schedule/types";
+import { Shift, StaffOption } from "@/features/schedule/types";
 import ShiftCard from "./ShiftCard";
 
 type Props = {
   date: Date;
   shifts: Shift[];
   userNameMap?: Record<string, string>;
+  staffOptions?: StaffOption[];
 };
 
-export default function WeekView({ date, shifts, userNameMap }: Props) {
+export default function WeekView({
+  date,
+  shifts,
+  userNameMap,
+  staffOptions,
+}: Props) {
   const start = startOfWeek(date, { weekStartsOn: 1 });
   const end = endOfWeek(date, { weekStartsOn: 1 });
   const days = eachDayOfInterval({ start, end });
@@ -37,7 +43,12 @@ export default function WeekView({ date, shifts, userNameMap }: Props) {
                   isSameDay(new Date(s.end_time), d)
               )
               .map((s) => (
-                <ShiftCard key={s.id} shift={s} userNameMap={userNameMap} />
+                <ShiftCard
+                  key={s.id}
+                  shift={s}
+                  userNameMap={userNameMap}
+                  staffOptions={staffOptions}
+                />
               ))}
           </div>
         </div>

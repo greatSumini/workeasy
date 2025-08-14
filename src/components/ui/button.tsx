@@ -30,7 +30,7 @@ const buttonVariants = cva(
       variant: "default",
       size: "default",
     },
-  },
+  }
 );
 
 export interface ButtonProps
@@ -42,14 +42,20 @@ export interface ButtonProps
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
-    return (
-      <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
-        ref={ref}
-        {...props}
-      />
+    const classString = typeof className === "string" ? className : "";
+    // 라이트모드 glass 배경(Button에 glass/glass-subtle/glass-strong)이 적용되었고
+    // variant가 기본(default)인 경우, 텍스트가 white로 남아 안 보이는 문제를 방지
+    const hasGlassBg = /(^|\s)glass(?:-subtle|-strong)?(\s|$)/.test(
+      classString
     );
-  },
+    const needsReadableText =
+      (variant ?? "default") === "default" && hasGlassBg;
+    const finalClassName = cn(
+      buttonVariants({ variant, size, className }),
+      needsReadableText && "text-gray-900"
+    );
+    return <Comp className={finalClassName} ref={ref} {...props} />;
+  }
 );
 Button.displayName = "Button";
 

@@ -1,0 +1,78 @@
+---
+alwaysApply: true
+---
+
+Title: Prevent transform-based hover effects on modal-like primitives (Dialog/Sheet/Popover)
+
+Context
+
+- We center Radix `Dialog.Content` using CSS transforms: `translate(-50%, -50%)`.
+- Applying any class that modifies `transform` on hover to the same element (e.g., `.glass:hover { -translate-y-0.5 }`) overrides the centering transform and causes the dialog to jump/move.
+
+Rules
+
+1. Do NOT attach `.glass` directly on `DialogContent` (or Sheet/Popover root panels).
+
+   - Use `.glass-strong` for modal panels instead of `.glass`.
+   - Avoid `hover:scale-*` or `hover:-translate-*` on modal root containers.
+
+2. Keep transform effects scoped to inner elements.
+
+   - If you need hover motion inside a dialog, apply it to child components only (buttons, cards inside), never the root.
+
+3. Prefer stable transitions on root panels.
+
+   - Use only opacity/scale animations provided by Radix/shadcn for open/close.
+   - Avoid `transition-all` on root when adding custom classes that might later add transform.
+
+4. Default styling lives in the shared UI primitive.
+   - Style modal roots at `src/components/ui/dialog.tsx`. Do not restyle the root per-usage with potentially conflicting classes.
+
+Checklist (PR Review)
+
+- [ ] No `.glass` on `DialogContent`, `SheetContent`, `PopoverContent` roots
+- [ ] No hover transform utilities on modal roots (`hover:scale`, `hover:-translate-*`)
+- [ ] Transform-based motion only on inner elements
+- [ ] New utilities won’t rewrite `transform` of modal roots
+
+Rationale
+
+- Transform is a single composite CSS property; setting it on hover replaces the centering transform.
+- This rule prevents regressions where hover causes modal to “move” off-center.
+  Title: Prevent transform-based hover effects on modal-like primitives (Dialog/Sheet/Popover)
+
+Context
+
+- We center Radix `Dialog.Content` using CSS transforms: `translate(-50%, -50%)`.
+- Applying any class that modifies `transform` on hover to the same element (e.g., `.glass:hover { -translate-y-0.5 }`) overrides the centering transform and causes the dialog to jump/move.
+
+Rules
+
+1. Do NOT attach `.glass` directly on `DialogContent` (or Sheet/Popover root panels).
+
+   - Use `.glass-strong` for modal panels instead of `.glass`.
+   - Avoid `hover:scale-*` or `hover:-translate-*` on modal root containers.
+
+2. Keep transform effects scoped to inner elements.
+
+   - If you need hover motion inside a dialog, apply it to child components only (buttons, cards inside), never the root.
+
+3. Prefer stable transitions on root panels.
+
+   - Use only opacity/scale animations provided by Radix/shadcn for open/close.
+   - Avoid `transition-all` on root when adding custom classes that might later add transform.
+
+4. Default styling lives in the shared UI primitive.
+   - Style modal roots at `src/components/ui/dialog.tsx`. Do not restyle the root per-usage with potentially conflicting classes.
+
+Checklist (PR Review)
+
+- [ ] No `.glass` on `DialogContent`, `SheetContent`, `PopoverContent` roots
+- [ ] No hover transform utilities on modal roots (`hover:scale`, `hover:-translate-*`)
+- [ ] Transform-based motion only on inner elements
+- [ ] New utilities won’t rewrite `transform` of modal roots
+
+Rationale
+
+- Transform is a single composite CSS property; setting it on hover replaces the centering transform.
+- This rule prevents regressions where hover causes modal to “move” off-center.

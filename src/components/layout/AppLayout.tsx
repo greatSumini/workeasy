@@ -11,20 +11,24 @@ import {
   Calendar,
   LayoutDashboard,
   MessageSquare,
-  Repeat,
+  ArrowLeftRight,
   Settings,
   BarChart3,
   Users,
   Cog,
+  CreditCard,
   Bell,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { usePendingRequestCount } from "@/features/requests/api";
 
 type UserRole = "manager" | "staff" | null;
 
 type NavItem = {
   label: string;
   href: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: LucideIcon;
+  badgeCount?: number;
 };
 
 function useUserRole(): UserRole {
@@ -35,33 +39,39 @@ function useUserRole(): UserRole {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return null as const;
+      if (!user) return null;
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", user.id)
         .single();
-      if (profile?.role === "manager") return "manager" as const;
-      return "staff" as const;
+      if (profile?.role === "manager") return "manager";
+      return "staff";
     },
     staleTime: 60_000,
   });
   return data ?? null;
 }
 
-function useNavItems(role: UserRole) {
+function useNavItems(role: UserRole, pendingRequestCount: number | undefined) {
   const common: NavItem[] = [
-    { label: "대시보드", href: "/dashboard", icon: LayoutDashboard },
     { label: "근무 캘린더", href: "/schedule", icon: Calendar },
-    { label: "교환 요청", href: "/requests", icon: Repeat },
-    { label: "채팅", href: "/chat", icon: MessageSquare },
-    { label: "알림", href: "/notifications", icon: Bell },
+    {
+      label: "교환 요청",
+      href: "/requests",
+      icon: ArrowLeftRight,
+      badgeCount:
+        pendingRequestCount && pendingRequestCount > 0
+          ? pendingRequestCount
+          : undefined,
+    },
     { label: "설정", href: "/settings", icon: Settings },
   ];
   const admin: NavItem[] = [
     { label: "관리자 대시보드", href: "/admin/dashboard", icon: BarChart3 },
     { label: "직원 관리", href: "/admin/staff", icon: Users },
     { label: "매장 설정", href: "/admin/settings", icon: Cog },
+    { label: "구독 관리", href: "/admin/subscription", icon: CreditCard },
   ];
   return { common, admin, showAdmin: role === "manager" };
 }
@@ -83,6 +93,7 @@ function getPageTitle(pathname: string): string {
     { test: /^\/admin\/dashboard(\/.*)?$/, title: "관리자 대시보드" },
     { test: /^\/admin\/staff(\/.*)?$/, title: "직원 관리" },
     { test: /^\/admin\/settings(\/.*)?$/, title: "매장 설정" },
+    { test: /^\/admin\/subscription(\/.*)?$/, title: "구독 관리" },
     { test: /^\/login$/, title: "로그인" },
     { test: /^\/signup$/, title: "회원가입" },
     { test: /^\/invite\//, title: "초대" },
@@ -102,7 +113,8 @@ function isPublicPath(pathname: string): boolean {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const role = useUserRole();
-  const { common, admin, showAdmin } = useNavItems(role);
+  const { data: pendingRequestCount } = usePendingRequestCount(role);
+  const { common, admin, showAdmin } = useNavItems(role, pendingRequestCount);
 
   const title = useMemo(() => getPageTitle(pathname || "/"), [pathname]);
   const isPublic = useMemo(() => isPublicPath(pathname || "/"), [pathname]);

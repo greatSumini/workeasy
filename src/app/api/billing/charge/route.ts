@@ -46,15 +46,12 @@ export async function POST(req: NextRequest) {
     const billingKey: string = keyRes as unknown as string;
 
     // create pending record (best-effort)
-    await supabase
-      .from("payment_intents")
-      .insert({
-        order_id: orderId,
-        user_id: userId,
-        amount,
-        status: "PENDING" as any,
-      })
-      .catch(() => undefined);
+    await supabase.from("payment_intents").insert({
+      order_id: orderId,
+      user_id: userId,
+      amount,
+      status: "PENDING" as any,
+    });
 
     const res = await fetch(
       `${TOSS_API_BASE}/v1/billing/${encodeURIComponent(billingKey)}`,
@@ -82,8 +79,7 @@ export async function POST(req: NextRequest) {
           failure_message: data?.message ?? null,
           failure_code: data?.code ?? null,
         })
-        .eq("order_id", orderId)
-        .catch(() => undefined);
+        .eq("order_id", orderId);
       return NextResponse.json(data, { status: res.status });
     }
     await supabase
@@ -93,8 +89,7 @@ export async function POST(req: NextRequest) {
         payment_key: data?.paymentKey ?? null,
         approved_at: data?.approvedAt ?? null,
       })
-      .eq("order_id", orderId)
-      .catch(() => undefined);
+      .eq("order_id", orderId);
     return NextResponse.json(data);
   } catch (error: any) {
     return NextResponse.json(

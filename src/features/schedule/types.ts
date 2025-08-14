@@ -31,6 +31,22 @@ export type ShiftFilters = {
   status?: ShiftStatus;
 };
 
+export type UpsertShiftInput = {
+  id?: string;
+  store_id: string;
+  user_id: string | null;
+  start_time: string; // ISO string
+  end_time: string; // ISO string
+  position?: string | null;
+  status?: ShiftStatus;
+  notes?: string | null;
+};
+
+export type DeleteShiftInput = {
+  id: string;
+  store_id: string;
+};
+
 export type StaffOption = {
   id: string;
   name: string;

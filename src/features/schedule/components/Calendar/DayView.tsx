@@ -7,16 +7,22 @@ import {
   isWithinInterval,
   startOfDay,
 } from "date-fns";
-import { Shift } from "@/features/schedule/types";
+import { Shift, StaffOption } from "@/features/schedule/types";
 import ShiftCard from "./ShiftCard";
 
 type Props = {
   date: Date;
   shifts: Shift[];
   userNameMap?: Record<string, string>;
+  staffOptions?: StaffOption[];
 };
 
-export default function DayView({ date, shifts, userNameMap }: Props) {
+export default function DayView({
+  date,
+  shifts,
+  userNameMap,
+  staffOptions,
+}: Props) {
   const hours = eachHourOfInterval({
     start: startOfDay(date),
     end: endOfDay(date),
@@ -37,7 +43,12 @@ export default function DayView({ date, shifts, userNameMap }: Props) {
                 })
               )
               .map((s) => (
-                <ShiftCard key={s.id} shift={s} userNameMap={userNameMap} />
+                <ShiftCard
+                  key={s.id}
+                  shift={s}
+                  userNameMap={userNameMap}
+                  staffOptions={staffOptions}
+                />
               ))}
           </div>
         </div>

@@ -1,0 +1,159 @@
+---
+alwaysApply: true
+---
+
+# Cursor Rule — Supabase PostgREST select/joins 안전 가이드 (사죄문 포함)
+
+본 규칙은 과거 PostgREST select 구문에 `auth.users` 스키마를 직접 조인하려다 PGRST100 파싱 오류를 야기한 문제에 대한 반성과 재발 방지를 위한 팀 규칙입니다. 동일 실수를 반복하지 않겠습니다.
+
+## 왜 문제가 발생했는가
+
+- Supabase(=PostgREST)는 `select` 파라미터에서 관계 확장을 지원하지만, 스키마 한정 테이블명(예: `auth.users`)을 관계 이름 위치에 직접 사용하면 파서가 이를 허용하지 않거나 집계 함수 구문으로 오인하는 경우가 있습니다.
+- 에러 예시: PGRST100 "unexpected 'u' expecting 'sum'|'avg'|'count'|'max'|'min'" — `auth.users`의 `u`를 파서가 잘못 해석했습니다.
+- 특히 `users:auth.users!fk(...)` 패턴은 케이스/환경에 따라 파싱 에러가 재현될 수 있습니다.
+
+## Must (반드시 지킬 것)
+
+1. `select` 관계 확장에서 스키마 한정 테이블(예: `auth.users`)을 직접 사용하지 않는다.
+2. 사용자 표시 정보가 필요하면 `profiles` 테이블을 사용하거나, 별도 API 호출로 보강(enrichment)한다.
+3. `select`에는 "public" 스키마의 관계만 사용하고, 교차 스키마 조인은 뷰(View) 또는 별도 쿼리로 처리한다.
+4. 조인 복잡도가 높을 경우, 다음 중 하나를 택한다:
+   - (권장) 1차 쿼리: 핵심 엔터티(+public 관계)만 조회 → 2차 쿼리: 보조 엔터티(profiles 등) 일괄 조회 → 클라이언트에서 합성
+   - (대안) public 스키마에 안전한 뷰를 만들고 그 뷰로 조회
+
+## Should (권장)
+
+- `auth.users`가 꼭 필요하면, public 스키마에 안전한 View를 만들고 그 View로부터 필요한 컬럼만 노출한다. RLS/권한을 엄격히 설정한다.
+- `select` 문자열은 반드시 사전에 콘솔/SQL 에디터에서 검증한다.
+
+## Good / Bad 예시
+
+- Bad (파싱 에러 위험):
+
+```
+select=
+  *,
+  shift:shifts(id,start_time,end_time,position),
+  requester:auth.users!exchange_requests_requester_id_fkey(id,email,raw_user_meta_data)
+```
+
+- Good (안전한 관계 확장만 사용):
+
+```
+select=
+  *,
+  shift:shifts(id,start_time,end_time,position)
+```
+
+그리고 별도 호출로 프로필 보강:
+
+```ts
+const ids = [requester_id, target_user_id].filter(Boolean);
+const profiles = await getProfilesByIds(ids); // public.profiles 전용
+```
+
+- Good (뷰 사용 대안):
+
+```
+CREATE VIEW public.exchange_requests_with_users AS
+SELECT er.*, p_req.full_name AS requester_name, p_tgt.full_name AS target_name
+FROM public.exchange_requests er
+LEFT JOIN public.profiles p_req ON p_req.id = er.requester_id
+LEFT JOIN public.profiles p_tgt ON p_tgt.id = er.target_user_id;
+```
+
+이후
+
+```
+select=*,shift:shifts(id,start_time,end_time,position)
+from exchange_requests_with_users
+```
+
+## 체크리스트
+
+- [ ] `select`에 스키마 한정 테이블명 사용 안 함 (`auth.users` 금지)
+- [ ] 사용자 정보는 `profiles` 또는 보강 쿼리로 처리
+- [ ] 필요 시 public View 생성 + RLS 점검
+- [ ] SQL/쿼리 문자열 사전 검증 완료
+
+## 사과 및 약속
+
+이번 문제로 인해 개발/테스트에 혼선을 드려 죄송합니다. 본 규칙을 프로젝트 룰로 상시 유지하고, 코드 리뷰 시 위 항목을 필수 점검하여 재발을 방지하겠습니다.
+
+# Cursor Rule — Supabase PostgREST select/joins 안전 가이드 (사죄문 포함)
+
+본 규칙은 과거 PostgREST select 구문에 `auth.users` 스키마를 직접 조인하려다 PGRST100 파싱 오류를 야기한 문제에 대한 반성과 재발 방지를 위한 팀 규칙입니다. 동일 실수를 반복하지 않겠습니다.
+
+## 왜 문제가 발생했는가
+
+- Supabase(=PostgREST)는 `select` 파라미터에서 관계 확장을 지원하지만, 스키마 한정 테이블명(예: `auth.users`)을 관계 이름 위치에 직접 사용하면 파서가 이를 허용하지 않거나 집계 함수 구문으로 오인하는 경우가 있습니다.
+- 에러 예시: PGRST100 "unexpected 'u' expecting 'sum'|'avg'|'count'|'max'|'min'" — `auth.users`의 `u`를 파서가 잘못 해석했습니다.
+- 특히 `users:auth.users!fk(...)` 패턴은 케이스/환경에 따라 파싱 에러가 재현될 수 있습니다.
+
+## Must (반드시 지킬 것)
+
+1. `select` 관계 확장에서 스키마 한정 테이블(예: `auth.users`)을 직접 사용하지 않는다.
+2. 사용자 표시 정보가 필요하면 `profiles` 테이블을 사용하거나, 별도 API 호출로 보강(enrichment)한다.
+3. `select`에는 "public" 스키마의 관계만 사용하고, 교차 스키마 조인은 뷰(View) 또는 별도 쿼리로 처리한다.
+4. 조인 복잡도가 높을 경우, 다음 중 하나를 택한다:
+   - (권장) 1차 쿼리: 핵심 엔터티(+public 관계)만 조회 → 2차 쿼리: 보조 엔터티(profiles 등) 일괄 조회 → 클라이언트에서 합성
+   - (대안) public 스키마에 안전한 뷰를 만들고 그 뷰로 조회
+
+## Should (권장)
+
+- `auth.users`가 꼭 필요하면, public 스키마에 안전한 View를 만들고 그 View로부터 필요한 컬럼만 노출한다. RLS/권한을 엄격히 설정한다.
+- `select` 문자열은 반드시 사전에 콘솔/SQL 에디터에서 검증한다.
+
+## Good / Bad 예시
+
+- Bad (파싱 에러 위험):
+
+```
+select=
+  *,
+  shift:shifts(id,start_time,end_time,position),
+  requester:auth.users!exchange_requests_requester_id_fkey(id,email,raw_user_meta_data)
+```
+
+- Good (안전한 관계 확장만 사용):
+
+```
+select=
+  *,
+  shift:shifts(id,start_time,end_time,position)
+```
+
+그리고 별도 호출로 프로필 보강:
+
+```ts
+const ids = [requester_id, target_user_id].filter(Boolean);
+const profiles = await getProfilesByIds(ids); // public.profiles 전용
+```
+
+- Good (뷰 사용 대안):
+
+```
+CREATE VIEW public.exchange_requests_with_users AS
+SELECT er.*, p_req.full_name AS requester_name, p_tgt.full_name AS target_name
+FROM public.exchange_requests er
+LEFT JOIN public.profiles p_req ON p_req.id = er.requester_id
+LEFT JOIN public.profiles p_tgt ON p_tgt.id = er.target_user_id;
+```
+
+이후
+
+```
+select=*,shift:shifts(id,start_time,end_time,position)
+from exchange_requests_with_users
+```
+
+## 체크리스트
+
+- [ ] `select`에 스키마 한정 테이블명 사용 안 함 (`auth.users` 금지)
+- [ ] 사용자 정보는 `profiles` 또는 보강 쿼리로 처리
+- [ ] 필요 시 public View 생성 + RLS 점검
+- [ ] SQL/쿼리 문자열 사전 검증 완료
+
+## 사과 및 약속
+
+이번 문제로 인해 개발/테스트에 혼선을 드려 죄송합니다. 본 규칙을 프로젝트 룰로 상시 유지하고, 코드 리뷰 시 위 항목을 필수 점검하여 재발을 방지하겠습니다.

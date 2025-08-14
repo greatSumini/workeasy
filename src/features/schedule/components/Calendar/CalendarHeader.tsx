@@ -9,13 +9,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CalendarViewMode } from "@/features/schedule/types";
+import { CalendarViewMode, StaffOption } from "@/features/schedule/types";
+import { ShiftFormModal } from "@/features/schedule/components/Forms/ShiftFormModal";
+import { useUserRole } from "@/hooks/use-user-role";
+import { useState } from "react";
 
 type Props = {
   currentDate: Date;
   onChangeDate: (next: Date) => void;
   mode: CalendarViewMode;
   onChangeMode: (mode: CalendarViewMode) => void;
+  storeId?: string;
+  staffOptions?: StaffOption[];
 };
 
 export default function CalendarHeader({
@@ -23,7 +28,11 @@ export default function CalendarHeader({
   onChangeDate,
   mode,
   onChangeMode,
+  storeId,
+  staffOptions,
 }: Props) {
+  const { data: role } = useUserRole();
+  const [open, setOpen] = useState(false);
   const goPrev = () => {
     const next =
       mode === "day"
@@ -63,7 +72,7 @@ export default function CalendarHeader({
           mode === "month" ? "yyyy년 M월" : "yyyy년 M월 d일"
         )}
       </div>
-      <div className="w-32">
+      <div className="w-32 flex items-center gap-2">
         <Select
           value={mode}
           onValueChange={(v) => onChangeMode(v as CalendarViewMode)}
@@ -77,7 +86,22 @@ export default function CalendarHeader({
             <SelectItem value="month">월</SelectItem>
           </SelectContent>
         </Select>
+        {role === "manager" && storeId && (
+          <button
+            className="px-3 py-2 rounded-md glass-subtle hover:glass text-sm"
+            onClick={() => setOpen(true)}
+          >
+            근무 추가
+          </button>
+        )}
       </div>
+      <ShiftFormModal
+        open={open}
+        onOpenChange={setOpen}
+        title="근무 추가"
+        defaultValues={{ store_id: storeId ?? "" }}
+        staffOptions={staffOptions ?? []}
+      />
     </div>
   );
 }
