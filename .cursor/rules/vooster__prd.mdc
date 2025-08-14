@@ -1,0 +1,77 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# workeasy – Product Requirement Document
+
+## 1. One-line Summary
+모바일-퍼스트 PWA로 소규모 F&B 매장의 교대근무 자동화와 실시간 근무 교환, 채팅·푸시 알림을 한 번에 제공하는 SaaS.
+
+## 2. Problem Statement
+소규모 카페·레스토랑은 여전히 엑셀과 카카오톡으로 근무 교환을 관리해 승인 지연, 근무 공백, 일정 오류가 빈번하다. 매니저는 시간과 노력을 크게 낭비하고, 알바생은 즉각적인 확인이 어렵다.
+
+## 3. Goals & Success Metrics
+| 목표 | 지표 | 목표값 |
+|------|------|-------|
+| 근무 교환 처리 시간 단축 | 요청→승인까지 평균 소요 시간 | 2분 이하 |
+| 매니저 스케줄 편성 시간 절감 | 주간 스케줄 작성/수정 시간 | 70% 절감 |
+| 근무 공백 제거 | 스케줄 오류로 인한 No-show | 월 0건 |
+| 사용자 활성도 | PWA DAU/MAU | 60% 이상 |
+
+## 4. Target Users (Personas)
+1. **매장 관리자 ‘민지’(32세)** – 8명의 알바를 관리, 근무표 수정·승인에 매주 3시간 이상 소비.
+2. **알바생 ‘지수’(22세)** – 수업 일정이 자주 바뀌어 근무 교환을 빠르게 처리해야 함.
+
+타깃 매장 규모: 알바생 1 – 10명, 교대 빈도가 높은 소형 카페·식당.
+
+## 5. Main Use Case (MVP)
+지수가 금요일 근무를 바꿔야 해서 앱 → 근무 카드 → ‘교환 요청’ → 동료 선택 → 민지가 푸시 알림 → 1탭 승인 → 전 직원 일정 실시간 업데이트.
+
+## 6. Feature List & Priority
+| 우선순위 | 기능 | 설명 |
+|----------|------|------|
+| P0 | 교대근무 자동 스케줄러 | 알바 가능 시간·근로 규정 기반 자동 배정 |
+| P0 | 근무 교환 요청/승인 | 요청 생성, 매니저 1탭 승인, 일정 즉시 반영 |
+| P0 | 실시간 채팅 & 공지 | 매장 단위 채팅방, 공지 고정, 파일 첨부(10MB) |
+| P0 | PWA 설치 & 푸시알림 | iOS/Android 홈화면 설치, Web Push |
+| P1 | 기본 통계 & 관리자 대시보드 | 근무 시간·인건비 요약, 교환 로그, 빈 슬롯 경고 |
+| P2 | CSV 내보내기·통합 | 추후 POS/급여 시스템 연동 |
+
+## 7. Functional Requirements (MVP)
+FR-1 개인·매장 캘린더(일/주/월) 뷰 제공
+FR-2 알바생이 교환 요청 시 대체 인원 선택 또는 마켓플레이스 공개
+FR-3 매니저는 알림 클릭 한 번으로 승인/거절 가능
+FR-4 승인 시 모든 사용자의 일정이 실시간으로 갱신되고 로그에 기록
+FR-5 모든 요청·승인·거절 이벤트에 푸시알림 발송 (<1초 지연)
+FR-6 채팅방에서 @멘션, 사진·PDF 첨부 가능
+FR-7 오프라인 상태에서도 캘린더 조회 가능, 온라인 시 자동 동기화
+
+## 8. Non-Functional Requirements
+• 모바일 Lighthouse PWA 점수 90 이상
+• 채팅·일정 변경 실시간 지연 ≤ 1초
+• GDPR/KISA 준수, 데이터 암호화 at-rest
+• 초기 파일럿: 동시 접속 500명, 매장 2,000곳까지 안정 동작
+
+## 9. Tech Stack (EasyNext 기본)
+Frontend: Next.js 15, TypeScript, shadcn/ui, lucide-react, tailwindcss, @tanstack/react-query, date-fns
+Backend: Supabase (PostgreSQL, Realtime, Auth)
+Infra: Vercel + Supabase, es-toolkit 배포 자동화
+
+## 10. Release Plan
+1개월: 디자인 & 스케줄 알고리즘 PoC
+2개월: P0 기능 개발·내부 QA
+3개월: 3개 카페 MVP 베타 론칭
+4개월: 피드백 반영·대시보드(P1) 추가
+5개월: 공개 베타 & 과금 모델 적용
+
+## 11. Out of Scope (MVP)
+• 급여 신고용 4대 보험 서식
+• 멀티 언어 지원
+• AI 수요 예측
+
+## 12. Risks & Mitigation
+R1 복잡한 근무 규정 → 초기엔 단순 규칙, 규정 예외 수동 수정 허용
+R2 iOS 웹푸시 제한 → APNs Web Push 적용, 한시적 SMS 백업 고려
+R3 온보딩 장벽 → 설치 가이드 튜토리얼, 카카오톡 로그인 지원
+
