@@ -8,6 +8,8 @@ import {
   Shift,
   StaffOption,
 } from "@/features/schedule/types";
+import { useMemo as useReactMemo } from "react";
+import { useProfilesByIds } from "@/features/schedule/api";
 import CalendarHeader from "./CalendarHeader";
 import CalendarFilters from "./CalendarFilters";
 import DayView from "./DayView";
@@ -18,12 +20,14 @@ type Props = {
   initialDate?: Date;
   shifts: Shift[];
   staffOptions: StaffOption[];
+  storeId: string;
 };
 
 export default function CalendarView({
   initialDate,
   shifts,
   staffOptions,
+  storeId,
 }: Props) {
   const [date, setDate] = useState<Date>(initialDate ?? new Date());
   const [mode, setMode] = useState<CalendarViewMode>("week");
@@ -35,11 +39,28 @@ export default function CalendarView({
 
   const filtered = useMemo(() => {
     return shifts.filter((s) => {
-      if (filters.staffId && s.staffId !== filters.staffId) return false;
+      if (filters.staffId && s.user_id !== filters.staffId) return false;
       if (filters.position && s.position !== filters.position) return false;
       return true;
     });
   }, [shifts, filters]);
+
+  // 사용자 이름 매핑용 프로필 로드
+  const userIds = useReactMemo(
+    () =>
+      Array.from(
+        new Set(filtered.map((s) => s.user_id).filter(Boolean))
+      ) as string[],
+    [filtered]
+  );
+  const { data: profiles } = useProfilesByIds(userIds);
+  const userNameMap = useReactMemo(() => {
+    const map: Record<string, string> = {};
+    for (const p of profiles ?? []) {
+      map[p.id] = p.full_name ?? "구성원";
+    }
+    return map;
+  }, [profiles]);
 
   const shiftByMode = (direction: 1 | -1) => {
     if (mode === "day") setDate((d) => addDays(d, 1 * direction));
@@ -81,9 +102,15 @@ export default function CalendarView({
         onChange={setFilters}
       />
       <div>
-        {mode === "day" && <DayView date={date} shifts={filtered} />}
-        {mode === "week" && <WeekView date={date} shifts={filtered} />}
-        {mode === "month" && <MonthView date={date} shifts={filtered} />}
+        {mode === "day" && (
+          <DayView date={date} shifts={filtered} userNameMap={userNameMap} />
+        )}
+        {mode === "week" && (
+          <WeekView date={date} shifts={filtered} userNameMap={userNameMap} />
+        )}
+        {mode === "month" && (
+          <MonthView date={date} shifts={filtered} userNameMap={userNameMap} />
+        )}
       </div>
     </section>
   );

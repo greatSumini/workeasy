@@ -14,9 +14,10 @@ import ShiftCard from "./ShiftCard";
 type Props = {
   date: Date;
   shifts: Shift[];
+  userNameMap?: Record<string, string>;
 };
 
-export default function WeekView({ date, shifts }: Props) {
+export default function WeekView({ date, shifts, userNameMap }: Props) {
   const start = startOfWeek(date, { weekStartsOn: 1 });
   const end = endOfWeek(date, { weekStartsOn: 1 });
   const days = eachDayOfInterval({ start, end });
@@ -32,11 +33,11 @@ export default function WeekView({ date, shifts }: Props) {
             {shifts
               .filter(
                 (s) =>
-                  isSameDay(new Date(s.startAt), d) ||
-                  isSameDay(new Date(s.endAt), d)
+                  isSameDay(new Date(s.start_time), d) ||
+                  isSameDay(new Date(s.end_time), d)
               )
               .map((s) => (
-                <ShiftCard key={s.id} shift={s} />
+                <ShiftCard key={s.id} shift={s} userNameMap={userNameMap} />
               ))}
           </div>
         </div>

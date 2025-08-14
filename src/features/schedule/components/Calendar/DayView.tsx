@@ -13,9 +13,10 @@ import ShiftCard from "./ShiftCard";
 type Props = {
   date: Date;
   shifts: Shift[];
+  userNameMap?: Record<string, string>;
 };
 
-export default function DayView({ date, shifts }: Props) {
+export default function DayView({ date, shifts, userNameMap }: Props) {
   const hours = eachHourOfInterval({
     start: startOfDay(date),
     end: endOfDay(date),
@@ -31,12 +32,12 @@ export default function DayView({ date, shifts }: Props) {
             {shifts
               .filter((s) =>
                 isWithinInterval(h, {
-                  start: new Date(s.startAt),
-                  end: new Date(s.endAt),
+                  start: new Date(s.start_time),
+                  end: new Date(s.end_time),
                 })
               )
               .map((s) => (
-                <ShiftCard key={s.id} shift={s} />
+                <ShiftCard key={s.id} shift={s} userNameMap={userNameMap} />
               ))}
           </div>
         </div>

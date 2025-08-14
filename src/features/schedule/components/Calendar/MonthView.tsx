@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  addDays,
   eachDayOfInterval,
   endOfMonth,
   endOfWeek,
@@ -17,9 +16,10 @@ import ShiftCard from "./ShiftCard";
 type Props = {
   date: Date;
   shifts: Shift[];
+  userNameMap?: Record<string, string>;
 };
 
-export default function MonthView({ date, shifts }: Props) {
+export default function MonthView({ date, shifts, userNameMap }: Props) {
   const monthStart = startOfMonth(date);
   const monthEnd = endOfMonth(date);
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
@@ -38,9 +38,9 @@ export default function MonthView({ date, shifts }: Props) {
           </div>
           <div className="flex flex-col gap-2">
             {shifts
-              .filter((s) => isSameDay(new Date(s.startAt), d))
+              .filter((s) => isSameDay(new Date(s.start_time), d))
               .map((s) => (
-                <ShiftCard key={s.id} shift={s} />
+                <ShiftCard key={s.id} shift={s} userNameMap={userNameMap} />
               ))}
           </div>
         </div>
