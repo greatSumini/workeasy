@@ -1,23 +1,33 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+
+function useCustomerKey() {
+  const [customerKey, setCustomerKey] = useState("");
+
+  useEffect(() => {
+    const existing = localStorage.getItem("demoCustomerKey");
+    if (existing) {
+      setCustomerKey(existing);
+    } else {
+      const generated = `cust_${Math.random().toString(36).slice(2, 10)}`;
+      localStorage.setItem("demoCustomerKey", generated);
+      setCustomerKey(generated);
+    }
+  }, []);
+
+  return customerKey;
+}
 
 export default function BillingPage() {
   const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || "";
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const customerKey = useMemo(() => {
-    // 데모용 무작위 값; 실제로는 서버에서 발급/전달 권장
-    const existing = localStorage.getItem("demoCustomerKey");
-    if (existing) return existing;
-    const generated = `cust_${Math.random().toString(36).slice(2, 10)}`;
-    localStorage.setItem("demoCustomerKey", generated);
-    return generated;
-  }, []);
+  const customerKey = useCustomerKey();
 
   useEffect(() => {
     (async () => {
