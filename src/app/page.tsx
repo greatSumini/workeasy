@@ -39,15 +39,23 @@ export default function Home() {
       <div className="fixed inset-0 ios-gradient-mesh opacity-30" />
       <div className="relative z-10 p-6 space-y-6 max-w-xl mx-auto text-center">
         <header className="glass-strong glass-animation rounded-2xl p-6 mb-6">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">workeasy</h1>
-          <p className="text-muted-foreground mt-2">결제 데모로 이동할 수 있습니다.</p>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+            workeasy
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            결제 데모로 이동할 수 있습니다.
+          </p>
         </header>
         <div className="glass glass-animation rounded-2xl p-6 space-y-4">
           <div>
-            <Link href="/billing" className="underline">자동결제(빌링) 등록 데모</Link>
+            <Link href="/billing" className="underline">
+              자동결제(빌링) 등록 데모
+            </Link>
           </div>
           <div>
-            <Link href="/billing/normal" className="underline">일반결제 데모</Link>
+            <Link href="/billing/normal" className="underline">
+              일반결제 데모
+            </Link>
           </div>
         </div>
         <div className="rounded-xl overflow-hidden border">
@@ -59,13 +67,19 @@ export default function Home() {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Button asChild className="w-full">
-            <Link href="/login" aria-label="로그인으로 이동">로그인</Link>
+            <Link href="/login" aria-label="로그인으로 이동">
+              로그인
+            </Link>
           </Button>
           <Button asChild variant="secondary" className="w-full">
-            <Link href="/signup" aria-label="회원가입으로 이동">회원가입</Link>
+            <Link href="/signup" aria-label="회원가입으로 이동">
+              회원가입
+            </Link>
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">홈 화면에 추가하여 PWA로 사용해 보세요.</p>
+        <p className="text-xs text-muted-foreground">
+          홈 화면에 추가하여 PWA로 사용해 보세요.
+        </p>
       </div>
     </main>
   );
