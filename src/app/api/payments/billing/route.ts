@@ -4,6 +4,7 @@ import {
   getBasicAuthHeader,
   getTossSecretKey,
 } from "@/lib/toss";
+import { createClient as createSupabaseServer } from "@/lib/supabase/server";
 
 // POST /api/payments/billing
 // Body: { customerKey: string, authKey: string }
@@ -41,7 +42,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(data, { status: res.status });
     }
 
-    // DB 저장 금지 지침: 응답 그대로 반환 (클라이언트 임시 저장)
+    // DB 저장 (T-020): 로그인 사용자 기준으로 billing_profiles upsert
+    try {
+      const supabase = await createSupabaseServer();
+      const { data: userRes } = await supabase.auth.getUser();
+      const userId = userRes.user?.id;
+      if (userId && data?.billingKey) {
+        const cardMasked = data?.card?.number ?? data?.cardNumber ?? null;
+        const issuer = data?.card?.issuerCode ?? null;
+        const acquirer = data?.card?.acquirerCode ?? null;
+        const owner = data?.card?.ownerType ?? null;
+        await supabase.rpc("insert_billing_profile", {
+          p_user: userId,
+          p_customer_key: customerKey,
+          p_billing_key: data.billingKey as string,
+          p_card_masked: cardMasked,
+          p_issuer: issuer,
+          p_acquirer: acquirer,
+          p_owner: owner,
+        });
+      }
+    } catch {}
+
     return NextResponse.json(data);
   } catch (error: any) {
     return NextResponse.json(

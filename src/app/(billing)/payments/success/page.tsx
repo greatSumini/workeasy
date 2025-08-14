@@ -25,6 +25,7 @@ export default function PaymentSuccessPage() {
     try {
       setLoading(true);
       setError(null);
+      // T-020: 결제 승인 시도 전 의도적으로 payment_intents PENDING 저장은 추후 서버 확장 태스크(T-022)에 포함
       const res = await fetch("/api/payments/approve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
