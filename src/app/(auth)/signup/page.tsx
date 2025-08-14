@@ -19,9 +19,25 @@ import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
+const phoneRegex = /^[0-9+\-()\s]{7,20}$/;
+
 const schema = z.object({
   email: z.string().email("유효한 이메일을 입력해 주세요."),
   password: z.string().min(8, "비밀번호는 8자 이상이어야 합니다."),
+  storeName: z.string().min(2, "매장명은 2자 이상 입력해 주세요."),
+  address: z
+    .string()
+    .max(255, "주소는 255자 이하여야 합니다.")
+    .optional()
+    .or(z.literal("")),
+  phone: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine(
+      (v) => !v || v === "" || phoneRegex.test(v),
+      "유효한 전화번호를 입력해 주세요."
+    ),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -33,7 +49,13 @@ function SignupContent() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: {
+      email: "",
+      password: "",
+      storeName: "",
+      address: "",
+      phone: "",
+    },
     mode: "onChange",
   });
 
@@ -47,6 +69,7 @@ function SignupContent() {
       toast({ title: "회원가입 실패", description: error.message });
       return;
     }
+
     if (!data.session) {
       toast({
         title: "이메일 확인 필요",
@@ -54,14 +77,31 @@ function SignupContent() {
       });
       return;
     }
-    toast({ title: "회원가입 완료", description: "대시보드로 이동합니다." });
-    const redirect = params.get("redirect") || "/dashboard";
+
+    const { error: rpcError } = await supabase.rpc("create_store_as_owner", {
+      store_name: values.storeName,
+      store_address: values.address || null,
+      store_phone: values.phone || null,
+    });
+    if (rpcError) {
+      toast({ title: "매장 생성 실패", description: rpcError.message });
+      return;
+    }
+
+    toast({
+      title: "회원가입 완료",
+      description: "관리자 대시보드로 이동합니다.",
+    });
+    const redirect = params.get("redirect") || "/admin/dashboard";
     router.replace(redirect);
   };
 
   return (
     <main className="mx-auto max-w-sm p-6">
       <h1 className="text-2xl font-semibold">회원가입</h1>
+      <p className="mt-2 text-sm text-muted-foreground">
+        매장 관리자만 가입할 수 있습니다. 알바생은 초대 링크로 가입해 주세요.
+      </p>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="mt-6 space-y-4">
@@ -97,6 +137,52 @@ function SignupContent() {
                     placeholder="••••••••"
                     {...field}
                   />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="storeName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel htmlFor="storeName">매장명</FormLabel>
+                <FormControl>
+                  <Input
+                    id="storeName"
+                    placeholder="워크이지 카페"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="address"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel htmlFor="address">주소 (선택)</FormLabel>
+                <FormControl>
+                  <Input id="address" placeholder="서울시 ..." {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel htmlFor="phone">전화번호 (선택)</FormLabel>
+                <FormControl>
+                  <Input id="phone" placeholder="010-1234-5678" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
