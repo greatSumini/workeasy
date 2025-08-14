@@ -1,0 +1,37 @@
+import { NextRequest, NextResponse } from "next/server";
+import { TOSS_API_BASE, getBasicAuthHeader, getTossSecretKey } from "@/lib/toss";
+
+// POST /api/billing/charge
+// Body: { billingKey: string, customerKey: string, orderId: string, amount: number, orderName?: string }
+export async function POST(req: NextRequest) {
+  try {
+    const { billingKey, customerKey, orderId, amount, orderName } = await req.json();
+    if (!billingKey || !customerKey || !orderId || typeof amount !== "number") {
+      return NextResponse.json({ message: "billingKey, customerKey, orderId, amount 필요" }, { status: 400 });
+    }
+
+    const secretKey = getTossSecretKey();
+    if (!secretKey) {
+      return NextResponse.json({ message: "서버 시크릿 키 미설정 (TOSS_SECRET_KEY)" }, { status: 500 });
+    }
+
+    const res = await fetch(`${TOSS_API_BASE}/v1/billing/${encodeURIComponent(billingKey)}`, {
+      method: "POST",
+      headers: {
+        "Authorization": getBasicAuthHeader(secretKey),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ customerKey, orderId, amount, orderName: orderName || "workeasy 구독" }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      return NextResponse.json(data, { status: res.status });
+    }
+    return NextResponse.json(data);
+  } catch (error: any) {
+    return NextResponse.json({ message: error?.message || "UNKNOWN" }, { status: 500 });
+  }
+}
+
+

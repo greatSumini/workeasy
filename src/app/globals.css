@@ -67,3 +67,39 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  /* iOS Style Glass Effect */
+  .glass {
+    @apply backdrop-blur-xl bg-white/70 border border-white/20 shadow-lg;
+  }
+  
+  .glass-subtle {
+    @apply backdrop-blur-md bg-white/50 border border-white/10;
+  }
+  
+  .glass-strong {
+    @apply backdrop-blur-2xl bg-white/80 border border-white/30 shadow-xl;
+  }
+  
+  /* iOS Style Gradient Backgrounds */
+  .ios-gradient {
+    @apply bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50;
+  }
+  
+  .ios-gradient-mesh {
+    background-image: 
+      radial-gradient(at 20% 80%, rgb(120, 119, 198) 0px, transparent 50%),
+      radial-gradient(at 80% 20%, rgb(255, 119, 198) 0px, transparent 50%),
+      radial-gradient(at 40% 40%, rgb(120, 219, 255) 0px, transparent 50%);
+  }
+  
+  /* Animation and Performance */
+  .glass-animation {
+    @apply transition-all duration-300 ease-out will-change-transform;
+  }
+  
+  .glass:hover {
+    @apply bg-white/80 shadow-xl -translate-y-0.5;
+  }
+}

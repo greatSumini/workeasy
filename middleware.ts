@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-const PROTECTED = [/^\/dashboard(\/.*)?$/];
+const PROTECTED = [/^\/dashboard(\/.*)?$/, /^\/admin(\/.*)?$/];
 const AUTH_PAGES = [/^\/login$/, /^\/signup$/];
 
 export function middleware(req: NextRequest) {
@@ -17,7 +17,8 @@ export function middleware(req: NextRequest) {
   }
 
   if (hasSession && isAuthPage) {
-    return NextResponse.redirect(new URL("/dashboard", url));
+    // 세션이 있으면 루트로 보내고, 루트에서 역할 기반 라우팅 처리
+    return NextResponse.redirect(new URL("/", url));
   }
 
   return NextResponse.next();

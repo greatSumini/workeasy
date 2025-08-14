@@ -1,0 +1,193 @@
+---
+alwaysApply: true
+description: iOS 스타일 Glass 디자인 가이드라인
+---
+
+# iOS 스타일 Glass 디자인 시스템
+
+## 개요
+
+workeasy 프로젝트는 iOS의 세련된 glassmorphism 디자인을 채택하여 전문적이고 신뢰성 있는 SaaS 서비스 경험을 제공합니다.
+
+## 테마 설정
+
+- **라이트모드 강제**: 항상 라이트 테마만 사용 (`forcedTheme="light"`)
+- **다크모드 비활성화**: `enableSystem={false}`로 시스템 테마 감지 차단
+- **일관성**: 모든 컴포넌트는 라이트모드 스타일만 적용
+
+## Glass 효과 클래스
+
+### 기본 Glass 효과
+
+```css
+.glass {
+  @apply backdrop-blur-xl bg-white/70 border border-white/20 shadow-lg;
+}
+```
+
+### 미묘한 Glass 효과 (서브 컴포넌트용)
+
+```css
+.glass-subtle {
+  @apply backdrop-blur-md bg-white/50 border border-white/10;
+}
+```
+
+### 강한 Glass 효과 (중요한 헤더/카드용)
+
+```css
+.glass-strong {
+  @apply backdrop-blur-2xl bg-white/80 border border-white/30 shadow-xl;
+}
+```
+
+## 배경 그라데이션
+
+### iOS 스타일 기본 그라데이션
+
+```css
+.ios-gradient {
+  @apply bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50;
+}
+```
+
+### 메시 그라데이션 (고급 효과)
+
+```css
+.ios-gradient-mesh {
+  background-image:
+    radial-gradient(at 20% 80%, rgb(120, 119, 198) 0px, transparent 50%),
+    radial-gradient(at 80% 20%, rgb(255, 119, 198) 0px, transparent 50%),
+    radial-gradient(at 40% 40%, rgb(120, 219, 255) 0px, transparent 50%);
+}
+```
+
+## 애니메이션 및 인터랙션
+
+### Glass 애니메이션 클래스
+
+```css
+.glass-animation {
+  @apply transition-all duration-300 ease-out will-change-transform;
+}
+```
+
+### Hover 효과
+
+- `hover:scale-105`: 카드 hover 시 미세한 확대
+- `hover:glass`: 더 강한 glass 효과로 전환
+- `hover:-translate-y-0.5`: 부드러운 상승 효과
+
+## 타이포그래피
+
+### 그라데이션 텍스트
+
+```css
+/* 제목용 그라데이션 */
+bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent
+
+/* 통계 수치용 그라데이션 */
+bg-gradient-to-br from-blue-600 to-purple-600 bg-clip-text text-transparent
+bg-gradient-to-br from-orange-600 to-pink-600 bg-clip-text text-transparent
+```
+
+## 카드 디자인 패턴
+
+### 통계 카드
+
+```jsx
+<div className="glass glass-animation rounded-2xl p-5 hover:scale-105">
+  <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+    라벨
+  </div>
+  <div className="mt-2 text-3xl font-bold bg-gradient-to-br from-blue-600 to-purple-600 bg-clip-text text-transparent">
+    값
+  </div>
+</div>
+```
+
+### 콘텐츠 카드
+
+```jsx
+<div className="glass glass-animation rounded-2xl p-6">
+  <h2 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+    제목
+  </h2>
+  {/* 콘텐츠 */}
+</div>
+```
+
+### 서브 카드 (중첩된 카드)
+
+```jsx
+<div className="glass-subtle glass-animation rounded-xl p-4 hover:glass">
+  {/* 서브 콘텐츠 */}
+</div>
+```
+
+## 레이아웃 패턴
+
+### 페이지 구조
+
+```jsx
+<main className="min-h-screen ios-gradient">
+  <div className="fixed inset-0 ios-gradient-mesh opacity-30" />
+  <div className="relative z-10 p-6 space-y-6">{/* 콘텐츠 */}</div>
+</main>
+```
+
+### 헤더 패턴
+
+```jsx
+<header className="glass-strong glass-animation rounded-2xl p-6 mb-6">
+  <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+    제목
+  </h1>
+  <p className="text-muted-foreground mt-2">설명</p>
+</header>
+```
+
+## 버튼 스타일
+
+### Glass 버튼
+
+```jsx
+<Button className="glass-subtle hover:glass">라벨</Button>
+```
+
+## 로딩 상태
+
+### Glass 로딩 UI
+
+```jsx
+<main className="min-h-screen ios-gradient flex items-center justify-center">
+  <div className="glass glass-animation rounded-2xl p-8">
+    <div className="flex items-center space-x-3">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      <span className="text-lg font-medium">로딩중...</span>
+    </div>
+  </div>
+</main>
+```
+
+## 디자인 원칙
+
+1. **일관성**: 모든 페이지에서 동일한 glass 효과 사용
+2. **계층 구조**: glass-strong > glass > glass-subtle 순으로 중요도 표현
+3. **애니메이션**: 모든 인터랙티브 요소에 glass-animation 적용
+4. **성능**: will-change-transform으로 성능 최적화
+5. **접근성**: 충분한 대비와 가독성 유지
+6. **모바일 최적화**: 터치 친화적인 크기와 간격
+
+## 금지사항
+
+- ❌ 다크모드 스타일 (`dark:` prefix) 사용 금지
+- ❌ 과도한 blur 효과로 가독성 저해 금지
+- ❌ 애니메이션 없는 glass 효과 사용 금지
+- ❌ 일관성 없는 border-radius 사용 금지 (rounded-xl, rounded-2xl 사용)
+
+## 성능 고려사항
+
+- `backdrop-filter` 사용 시 성능 모니터링 필요
+- `will-change-transform` 적절히 사용하여 GPU 가속 활용
+- 복잡한 그라데이션은 필요한 곳에만 제한적 사용
