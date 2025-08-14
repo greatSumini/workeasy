@@ -29,7 +29,6 @@ export default function BillingChargePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          billingKey,
           customerKey,
           orderId,
           amount: 4900,
