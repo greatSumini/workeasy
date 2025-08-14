@@ -11,6 +11,13 @@ import type {
 } from "./types";
 import { getProfilesByIds } from "@/features/schedule/api";
 
+// Helper type for profiles
+type UserProfile = {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+};
+
 async function tryCount(
   table: string,
   filters: Record<string, unknown>
@@ -400,6 +407,344 @@ export function useDeleteExchangeRequest() {
   return useMutation({
     mutationFn: deleteExchangeRequest,
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["exchange-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["requests-list"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-request-count"] });
+    },
+  });
+}
+
+// Staff 전용 API 함수들
+export async function getMyIncomingExchangeRequests(): Promise<
+  ExchangeRequest[]
+> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("사용자 인증이 필요합니다.");
+  }
+
+  // 1. 나를 대상으로 한 특정 요청 (target_user_id = 나)
+  // 2. 전체 공개 요청 (target_user_id = null)
+  const { data, error } = await supabase
+    .from("exchange_requests")
+    .select(
+      `
+      *,
+      shift:shifts(id, start_time, end_time, position)
+    `
+    )
+    .or(`target_user_id.eq.${user.id},target_user_id.is.null`)
+    .eq("status", "pending")
+    .neq("requester_id", user.id) // 내가 요청한 것은 제외
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(
+      `수락 가능한 교환 요청 조회에 실패했습니다: ${error.message}`
+    );
+  }
+
+  // 요청자 정보 별도 조회
+  const rows = (data || []) as any[];
+  const requesterIds = [
+    ...new Set(rows.map((r) => r.requester_id).filter(Boolean)),
+  ];
+  const profiles = await getProfilesByIds(requesterIds);
+  const profileMap = new Map(profiles.map((p) => [p.id, p]));
+
+  return rows.map((row) => ({
+    ...row,
+    requester: profileMap.get(row.requester_id)
+      ? {
+          id: row.requester_id,
+          email: "",
+          user_metadata: {
+            name: profileMap.get(row.requester_id)?.full_name || null,
+          },
+        }
+      : undefined,
+  })) as ExchangeRequest[];
+}
+
+export async function getMyAcceptedExchangeRequests(): Promise<
+  ExchangeRequest[]
+> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("사용자 인증이 필요합니다.");
+  }
+
+  // approved_by가 나인 요청들
+  const { data, error } = await supabase
+    .from("exchange_requests")
+    .select(
+      `
+      *,
+      shift:shifts(id, start_time, end_time, position)
+    `
+    )
+    .eq("approved_by", user.id)
+    .eq("status", "approved")
+    .order("approved_at", { ascending: false });
+
+  if (error) {
+    throw new Error(
+      `내가 수락한 교환 요청 조회에 실패했습니다: ${error.message}`
+    );
+  }
+
+  // 요청자 정보 별도 조회
+  const rows = (data || []) as any[];
+  const requesterIds = [
+    ...new Set(rows.map((r) => r.requester_id).filter(Boolean)),
+  ];
+  const profiles = await getProfilesByIds(requesterIds);
+  const profileMap = new Map(profiles.map((p) => [p.id, p]));
+
+  return rows.map((row) => ({
+    ...row,
+    requester: profileMap.get(row.requester_id)
+      ? {
+          id: row.requester_id,
+          email: "",
+          user_metadata: {
+            name: profileMap.get(row.requester_id)?.full_name || null,
+          },
+        }
+      : undefined,
+  })) as ExchangeRequest[];
+}
+
+export async function acceptExchangeRequest(
+  requestId: string
+): Promise<ExchangeRequest> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("사용자 인증이 필요합니다.");
+  }
+
+  const { data, error } = await supabase
+    .from("exchange_requests")
+    .update({
+      status: "approved",
+      approved_by: user.id,
+      approved_at: new Date().toISOString(),
+    })
+    .eq("id", requestId)
+    .eq("status", "pending") // pending 상태인 것만 수락 가능
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(`교환 요청 수락에 실패했습니다: ${error.message}`);
+  }
+
+  return data as ExchangeRequest;
+}
+
+export async function rejectExchangeRequest(
+  requestId: string
+): Promise<ExchangeRequest> {
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("exchange_requests")
+    .update({
+      status: "rejected",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", requestId)
+    .eq("status", "pending") // pending 상태인 것만 거절 가능
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(`교환 요청 거절에 실패했습니다: ${error.message}`);
+  }
+
+  return data as ExchangeRequest;
+}
+
+// React Query Hooks for Staff
+export function useMyIncomingExchangeRequests() {
+  return useQuery({
+    queryKey: ["my-incoming-exchange-requests"],
+    queryFn: getMyIncomingExchangeRequests,
+    staleTime: 1000 * 60 * 2, // 2분
+    gcTime: 1000 * 60 * 5, // 5분
+  });
+}
+
+export function useMyAcceptedExchangeRequests() {
+  return useQuery({
+    queryKey: ["my-accepted-exchange-requests"],
+    queryFn: getMyAcceptedExchangeRequests,
+    staleTime: 1000 * 60 * 5, // 5분
+    gcTime: 1000 * 60 * 10, // 10분
+  });
+}
+
+export function useAcceptExchangeRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: acceptExchangeRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["my-incoming-exchange-requests"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["my-accepted-exchange-requests"],
+      });
+      queryClient.invalidateQueries({ queryKey: ["exchange-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["requests-list"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-request-count"] });
+    },
+  });
+}
+
+export function useRejectExchangeRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: rejectExchangeRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["my-incoming-exchange-requests"],
+      });
+      queryClient.invalidateQueries({ queryKey: ["exchange-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["requests-list"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-request-count"] });
+    },
+  });
+}
+
+// 내가 보낸 요청 조회
+export async function getMySentExchangeRequests(): Promise<ExchangeRequest[]> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("사용자 인증이 필요합니다.");
+  }
+
+  // 내가 요청한 모든 교환 요청
+  const { data, error } = await supabase
+    .from("exchange_requests")
+    .select(
+      `
+      *,
+      shift:shifts(id, start_time, end_time, position)
+    `
+    )
+    .eq("requester_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(
+      `내가 보낸 교환 요청 조회에 실패했습니다: ${error.message}`
+    );
+  }
+
+  // 대상자 및 승인자 정보 별도 조회
+  const rows = (data || []) as any[];
+  const userIds = [
+    ...new Set([
+      ...rows.map((r) => r.target_user_id).filter(Boolean),
+      ...rows.map((r) => r.approved_by).filter(Boolean),
+    ]),
+  ];
+  const profiles = await getProfilesByIds(userIds);
+  const profileMap = new Map(profiles.map((p) => [p.id, p]));
+
+  return rows.map((row) => ({
+    ...row,
+    target_user: profileMap.get(row.target_user_id)
+      ? {
+          id: row.target_user_id,
+          email: "",
+          user_metadata: {
+            name: profileMap.get(row.target_user_id)?.full_name || null,
+          },
+        }
+      : undefined,
+    approved_by_user: profileMap.get(row.approved_by)
+      ? {
+          id: row.approved_by,
+          email: "",
+          user_metadata: {
+            name: profileMap.get(row.approved_by)?.full_name || null,
+          },
+        }
+      : undefined,
+  })) as ExchangeRequest[];
+}
+
+// 내가 보낸 요청 취소
+export async function cancelExchangeRequest(
+  requestId: string
+): Promise<ExchangeRequest> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("사용자 인증이 필요합니다.");
+  }
+
+  const { data, error } = await supabase
+    .from("exchange_requests")
+    .update({
+      status: "cancelled",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", requestId)
+    .eq("requester_id", user.id) // 본인이 요청한 것만 취소 가능
+    .eq("status", "pending") // pending 상태인 것만 취소 가능
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(`교환 요청 취소에 실패했습니다: ${error.message}`);
+  }
+
+  return data as ExchangeRequest;
+}
+
+// React Query Hooks
+export function useMySentExchangeRequests() {
+  return useQuery({
+    queryKey: ["my-sent-exchange-requests"],
+    queryFn: getMySentExchangeRequests,
+    staleTime: 1000 * 60 * 2, // 2분
+    gcTime: 1000 * 60 * 5, // 5분
+  });
+}
+
+export function useCancelExchangeRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: cancelExchangeRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["my-sent-exchange-requests"],
+      });
       queryClient.invalidateQueries({ queryKey: ["exchange-requests"] });
       queryClient.invalidateQueries({ queryKey: ["requests-list"] });
       queryClient.invalidateQueries({ queryKey: ["pending-request-count"] });

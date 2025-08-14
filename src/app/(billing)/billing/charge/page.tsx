@@ -9,15 +9,18 @@ export default function BillingChargePage() {
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [customerKey, setCustomerKey] = useState("");
+  const [billingKey, setBillingKey] = useState("");
 
-  const customerKey = useMemo(
-    () => localStorage.getItem("demoCustomerKey") || "",
-    []
-  );
-  const billingKey = useMemo(
-    () => localStorage.getItem("demoBillingKey") || "",
-    []
-  );
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      setCustomerKey(localStorage.getItem("demoCustomerKey") || "");
+      setBillingKey(localStorage.getItem("demoBillingKey") || "");
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const onCharge = async () => {
     setLoading(true);

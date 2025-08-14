@@ -1,10 +1,10 @@
 "use client";
 
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
-export default function PaymentSuccessPage() {
+function PaymentSuccessContent() {
   const params = useSearchParams();
   const router = useRouter();
   const paymentKey = params.get("paymentKey");
@@ -25,7 +25,6 @@ export default function PaymentSuccessPage() {
     try {
       setLoading(true);
       setError(null);
-      // T-020: 결제 승인 시도 전 의도적으로 payment_intents PENDING 저장은 추후 서버 확장 태스크(T-022)에 포함
       const res = await fetch("/api/payments/approve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -78,5 +77,13 @@ export default function PaymentSuccessPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense fallback={<div className="p-6">로딩중...</div>}>
+      <PaymentSuccessContent />
+    </Suspense>
   );
 }

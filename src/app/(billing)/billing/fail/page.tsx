@@ -1,9 +1,10 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
-export default function BillingFailPage() {
+function BillingFailContent() {
   const params = useSearchParams();
   const router = useRouter();
   const code = params.get("code");
@@ -41,5 +42,13 @@ export default function BillingFailPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function BillingFailPage() {
+  return (
+    <Suspense fallback={<div className="p-6">로딩중...</div>}>
+      <BillingFailContent />
+    </Suspense>
   );
 }

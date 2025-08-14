@@ -15,6 +15,9 @@ import { format, addDays } from "date-fns";
 import { useMemo } from "react";
 import { useEffect } from "react";
 import { ShiftFormModal } from "@/features/schedule/components/Forms/ShiftFormModal";
+import { IncomingExchangeRequests } from "@/features/requests/components/IncomingExchangeRequests";
+import { AcceptedExchangeRequests } from "@/features/requests/components/AcceptedExchangeRequests";
+import { SentExchangeRequests } from "@/features/requests/components/SentExchangeRequests";
 import { createClient } from "@/lib/supabase/client";
 
 export default function RequestsPage() {
@@ -36,6 +39,9 @@ function RequestsContent() {
   const [authUserId, setAuthUserId] = useState<string | null>(null);
   const [authUserName, setAuthUserName] = useState<string | null>(null);
   const [authUserEmail, setAuthUserEmail] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<
+    "all" | "incoming" | "accepted" | "sent"
+  >("all");
 
   // 향후 7일간의 내 근무 가져오기 (staff 역할일 때만)
   // 현재 날짜를 안정적으로 처리
@@ -133,6 +139,54 @@ function RequestsContent() {
         </div>
       </header>
 
+      {/* Staff 전용 탭 네비게이션 */}
+      {role === "staff" && (
+        <div className="glass glass-animation rounded-2xl p-1 mb-6">
+          <div className="grid grid-cols-4 gap-1">
+            <button
+              onClick={() => setActiveTab("all")}
+              className={`px-3 py-2 text-sm font-medium rounded-xl transition-all ${
+                activeTab === "all"
+                  ? "glass-strong text-gray-900"
+                  : "text-gray-600 hover:text-gray-900 hover:glass-subtle"
+              }`}
+            >
+              전체 요청
+            </button>
+            <button
+              onClick={() => setActiveTab("sent")}
+              className={`px-3 py-2 text-sm font-medium rounded-xl transition-all ${
+                activeTab === "sent"
+                  ? "glass-strong text-gray-900"
+                  : "text-gray-600 hover:text-gray-900 hover:glass-subtle"
+              }`}
+            >
+              내가 보낸 요청
+            </button>
+            <button
+              onClick={() => setActiveTab("incoming")}
+              className={`px-3 py-2 text-sm font-medium rounded-xl transition-all ${
+                activeTab === "incoming"
+                  ? "glass-strong text-gray-900"
+                  : "text-gray-600 hover:text-gray-900 hover:glass-subtle"
+              }`}
+            >
+              수락 가능한 요청
+            </button>
+            <button
+              onClick={() => setActiveTab("accepted")}
+              className={`px-3 py-2 text-sm font-medium rounded-xl transition-all ${
+                activeTab === "accepted"
+                  ? "glass-strong text-gray-900"
+                  : "text-gray-600 hover:text-gray-900 hover:glass-subtle"
+              }`}
+            >
+              수락한 요청
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 내 근무 목록 (staff 역할일 때만) */}
       {role === "staff" && !selectedShift && showCreateForm && (
         <div className="glass glass-animation rounded-2xl p-6 mb-6">
@@ -182,7 +236,17 @@ function RequestsContent() {
         </div>
       )}
 
-      <RequestsList />
+      {/* 탭 콘텐츠 */}
+      {role === "staff" ? (
+        <div>
+          {activeTab === "all" && <RequestsList />}
+          {activeTab === "sent" && <SentExchangeRequests />}
+          {activeTab === "incoming" && <IncomingExchangeRequests />}
+          {activeTab === "accepted" && <AcceptedExchangeRequests />}
+        </div>
+      ) : (
+        <RequestsList />
+      )}
 
       {/* 교환 요청 생성 폼 */}
       {selectedShift && (

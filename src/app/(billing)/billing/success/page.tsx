@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
-export default function BillingSuccessPage() {
+function BillingSuccessContent() {
   const params = useSearchParams();
   const router = useRouter();
   const customerKey = params.get("customerKey");
@@ -19,7 +19,6 @@ export default function BillingSuccessPage() {
   );
 
   useEffect(() => {
-    // 자동 확인 실행
     if (canConfirm) {
       void confirmBilling();
     }
@@ -102,5 +101,24 @@ export default function BillingSuccessPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function BillingSuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen ios-gradient flex items-center justify-center">
+          <div className="glass glass-animation rounded-2xl p-8">
+            <div className="flex items-center space-x-3">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+              <span className="text-lg font-medium">로딩중...</span>
+            </div>
+          </div>
+        </main>
+      }
+    >
+      <BillingSuccessContent />
+    </Suspense>
   );
 }

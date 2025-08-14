@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import AuthGuard from "@/components/auth/AuthGuard";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { addMonths, format } from "date-fns";
 
 type BillingProfile = {
   id: string;
@@ -37,6 +39,21 @@ function Content() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<BillingProfile | null>(null);
   const [payments, setPayments] = useState<PaymentIntent[]>([]);
+  const [charging, setCharging] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
+
+  const lastSucceeded = useMemo(() => {
+    return payments.find((p) => p.status === "SUCCEEDED") || null;
+  }, [payments]);
+
+  const nextBillingAt = useMemo(() => {
+    if (!lastSucceeded) return null;
+    try {
+      return addMonths(new Date(lastSucceeded.created_at), 1);
+    } catch {
+      return null;
+    }
+  }, [lastSucceeded]);
 
   useEffect(() => {
     let active = true;
@@ -58,33 +75,94 @@ function Content() {
         return;
       }
 
-      // 결제수단 (billing_profiles)
-      const { data: profRows } = await supabase
-        .from("billing_profiles")
-        .select(
-          "id, customer_key, card_masked, issuer_code, acquirer_code, created_at"
-        )
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1);
+      // 데이터 로딩 함수 추출
+      const supabaseRefresh = async () => {
+        const { data: profRows } = await supabase
+          .from("billing_profiles")
+          .select(
+            "id, customer_key, card_masked, issuer_code, acquirer_code, created_at"
+          )
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1);
 
-      // 최근 결제내역 (payment_intents)
-      const { data: intentRows } = await supabase
-        .from("payment_intents")
-        .select("id, order_id, amount, status, created_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(10);
+        const { data: intentRows } = await supabase
+          .from("payment_intents")
+          .select("id, order_id, amount, status, created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(10);
 
-      if (!active) return;
-      setProfile((profRows?.[0] as BillingProfile) ?? null);
-      setPayments((intentRows as PaymentIntent[]) ?? []);
+        if (!active) return;
+        setProfile((profRows?.[0] as BillingProfile) ?? null);
+        setPayments((intentRows as PaymentIntent[]) ?? []);
+      };
+
+      await supabaseRefresh();
       setLoading(false);
     })();
     return () => {
       active = false;
     };
   }, [router]);
+
+  const chargeNow = useCallback(async () => {
+    if (!profile?.customer_key) return;
+    setCharging(true);
+    try {
+      const orderId = `sub_${Date.now()}`;
+      const res = await fetch("/api/billing/charge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerKey: profile.customer_key,
+          orderId,
+          amount: 4900,
+          orderName: "workeasy 구독 1개월",
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.message || "결제 실패");
+      // 갱신
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { data: intentRows } = await supabase
+          .from("payment_intents")
+          .select("id, order_id, amount, status, created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(10);
+        setPayments((intentRows as PaymentIntent[]) ?? []);
+      }
+      alert("결제가 완료되었습니다.");
+    } catch (e: any) {
+      alert(e?.message || "결제 요청 실패");
+    } finally {
+      setCharging(false);
+    }
+  }, [profile]);
+
+  const unlinkPaymentMethod = useCallback(async () => {
+    if (!profile) return;
+    setUnlinking(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("billing_profiles")
+        .delete()
+        .eq("id", profile.id);
+      if (error) throw error;
+      setProfile(null);
+      alert("결제수단 연결이 해제되었습니다.");
+    } catch (e: any) {
+      alert(e?.message || "해제 실패");
+    } finally {
+      setUnlinking(false);
+    }
+  }, [profile]);
 
   if (loading) {
     return (
@@ -118,21 +196,29 @@ function Content() {
               결제수단
             </h2>
             {profile ? (
-              <div className="space-y-2 text-sm">
-                <div>
-                  상태: <span className="font-medium">등록됨</span>
+              <>
+                <div className="space-y-2 text-sm">
+                  <div>
+                    상태: <span className="font-medium">등록됨</span>
+                  </div>
+                  <div>
+                    카드:{" "}
+                    <span className="font-mono">
+                      {profile.card_masked ?? "(마스킹 없음)"}
+                    </span>
+                  </div>
+                  <div className="text-muted-foreground">
+                    고객 키:{" "}
+                    <span className="font-mono">{profile.customer_key}</span>
+                  </div>
                 </div>
-                <div>
-                  카드:{" "}
-                  <span className="font-mono">
-                    {profile.card_masked ?? "(마스킹 없음)"}
-                  </span>
-                </div>
-                <div className="text-muted-foreground">
-                  고객 키:{" "}
-                  <span className="font-mono">{profile.customer_key}</span>
-                </div>
-              </div>
+                {nextBillingAt && (
+                  <div className="text-muted-foreground">
+                    다음 결제 예정일:{" "}
+                    {format(nextBillingAt, "yyyy.MM.dd HH:mm")}
+                  </div>
+                )}
+              </>
             ) : (
               <div className="text-sm text-muted-foreground">
                 등록된 결제수단이 없습니다.
@@ -142,13 +228,34 @@ function Content() {
               <Button asChild className="glass-subtle hover:glass">
                 <Link href="/billing">결제수단 등록/변경</Link>
               </Button>
-              <Button
-                asChild
-                variant="secondary"
-                className="glass-subtle hover:glass"
-              >
-                <Link href="/billing/charge">자동결제 테스트</Link>
-              </Button>
+              {profile ? (
+                <>
+                  <Button
+                    onClick={chargeNow}
+                    disabled={charging}
+                    variant="secondary"
+                    className="glass-subtle hover:glass"
+                  >
+                    {charging ? "결제 중..." : "구독 결제 실행 (₩4,900)"}
+                  </Button>
+                  <Button
+                    onClick={unlinkPaymentMethod}
+                    disabled={unlinking}
+                    variant="ghost"
+                    className="glass-subtle hover:glass"
+                  >
+                    {unlinking ? "해제 중..." : "결제수단 해제"}
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  asChild
+                  variant="secondary"
+                  className="glass-subtle hover:glass"
+                >
+                  <Link href="/billing/charge">자동결제 테스트</Link>
+                </Button>
+              )}
             </div>
           </div>
 
@@ -169,9 +276,17 @@ function Content() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="font-medium">{p.order_id}</div>
-                    <div className="text-xs px-2 py-1 rounded-full glass-subtle">
+                    <Badge
+                      variant={
+                        p.status === "SUCCEEDED"
+                          ? "default"
+                          : p.status === "FAILED"
+                            ? "destructive"
+                            : "secondary"
+                      }
+                    >
                       {p.status}
-                    </div>
+                    </Badge>
                   </div>
                   <div className="mt-2 text-xs text-muted-foreground">
                     금액 {p.amount.toLocaleString()}원 ·{" "}
